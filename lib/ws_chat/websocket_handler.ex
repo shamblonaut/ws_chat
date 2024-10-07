@@ -97,8 +97,6 @@ defmodule WsChat.WebsocketHandler do
 
   # Broadcast message to all clients
   def websocket_info({:broadcast, channel, from_id, from_ip, content}, state) do
-    Logger.info("[#{channel}] #{from_id} (#{from_ip}): #{content}")
-
     if channel in state.channels do
       {:reply,
        {:text,
@@ -139,6 +137,8 @@ defmodule WsChat.WebsocketHandler do
   end
 
   defp broadcast_message(channel, content, %{id: from_id, ip: from_ip}) do
+    Logger.info("[#{channel}] #{from_id} (#{from_ip}): #{content}")
+
     :ets.foldl(
       fn {pid, client_state}, _ ->
         if channel in client_state.channels do

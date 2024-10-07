@@ -152,8 +152,8 @@
 
     <script>
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      // const wsHost = window.location.host;
-      const wsHost = "localhost:4000";
+      const wsHost = window.location.host;
+      // const wsHost = "localhost:4000";
       const socket = new WebSocket(`${wsProtocol}//${wsHost}/chat/ws`);
 
       const connectionStatus = document.querySelector(".connection");
