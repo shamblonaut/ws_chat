@@ -1,4 +1,4 @@
-defmodule Hub.Application do
+defmodule WsChat.Application do
   use Application
   require Logger
 
@@ -11,7 +11,7 @@ defmodule Hub.Application do
     children = [
       {Plug.Cowboy,
        scheme: :http,
-       plug: Hub.Router,
+       plug: WsChat.Router,
        options: [
          dispatch: dispatch(),
          port: 4000,
@@ -19,7 +19,7 @@ defmodule Hub.Application do
        ]}
     ]
 
-    opts = [strategy: :one_for_one, name: Hub.Supervisor]
+    opts = [strategy: :one_for_one, name: WsChat.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
@@ -27,8 +27,8 @@ defmodule Hub.Application do
     [
       {:_,
        [
-         {"/chat/ws", Hub.WebsocketHandler, []},
-         {:_, Plug.Cowboy.Handler, {Hub.Router, []}}
+         {"/chat/ws", WsChat.WebsocketHandler, []},
+         {:_, Plug.Cowboy.Handler, {WsChat.Router, []}}
        ]}
     ]
   end

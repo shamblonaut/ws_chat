@@ -1,4 +1,4 @@
-defmodule Hub.WebsocketHandler do
+defmodule WsChat.WebsocketHandler do
   require Logger
 
   @behaviour :cowboy_websocket

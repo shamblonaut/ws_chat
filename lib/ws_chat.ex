@@ -1,6 +1,6 @@
-defmodule Hub do
+defmodule WsChat do
   @moduledoc """
-  Documentation for `Hub`.
+  Documentation for `WsChat`.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule Hub do
 
   ## Examples
 
-      iex> Hub.hello()
+      iex> WsChat.hello()
       :world
 
   """

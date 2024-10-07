@@ -1,3 +1,3 @@
-# Hub
+# WS Chat
 
-Hub for Chax
+A WebSocket-based chat system implemented with Cowboy in Elixir (with lots of help from GPT and Claude)

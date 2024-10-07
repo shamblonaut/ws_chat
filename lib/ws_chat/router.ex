@@ -1,4 +1,4 @@
-defmodule Hub.Router do
+defmodule WsChat.Router do
   use Plug.Router
   require EEx
 

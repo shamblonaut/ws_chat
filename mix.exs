@@ -1,9 +1,9 @@
-defmodule Hub.MixProject do
+defmodule WsChat.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :hub,
+      app: :ws_chat,
       version: "0.1.0",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
@@ -14,8 +14,8 @@ defmodule Hub.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {Hub.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools],
+      mod: {WsChat.Application, []}
     ]
   end
 
