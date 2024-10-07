@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebSocket Chat with Channels</title>
+    <title>WebSocket Chat</title>
     <style>
       body,
       html {
@@ -18,12 +18,33 @@
         height: 100vh;
         background-color: #f0f0f0;
       }
-      .chat-header {
+      .chat-name {
         background-color: #4a69bd;
         color: white;
         padding: 10px 20px;
         text-align: center;
         font-size: 1.5em;
+      }
+      .connection {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 8px;
+        color: white;
+        background-color: #f38ba8;
+      }
+      .connection.connected {
+        background-color: #a6e3a1;
+      }
+      .status-circle {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background-color: #d20f39;
+      }
+      .connected .status-circle {
+        background-color: #40a02b;
       }
       .chat-body {
         display: grid;
@@ -105,7 +126,13 @@
   </head>
   <body>
     <div class="chat-container">
-      <div class="chat-header">WebSocket Chat with Channels</div>
+      <div class="chat-header">
+        <div class="chat-name">WebSocket Chat</div>
+        <div class="connection">
+          <div class="status-circle"></div>
+          <div class="status-text">Disconnected</div>
+        </div>
+      </div>
       <div class="chat-body">
         <div class="channel-list" id="channelList">
           <div class="channel-item" onclick="joinChannel('general')">
@@ -124,9 +151,13 @@
 
     <script>
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const socket = new WebSocket(
-        `${wsProtocol}//${window.location.host}/chat/ws`,
-      );
+      // const wsHost = window.location.host;
+      const wsHost = "localhost:4000";
+      const socket = new WebSocket(`${wsProtocol}//${wsHost}/chat/ws`);
+
+      const connectionStatus = document.querySelector(".connection");
+      const connectionStatusText = document.querySelector(".status-text");
+
       const messages = document.getElementById("messages");
       const messageInput = document.getElementById("messageInput");
 
@@ -134,7 +165,11 @@
       let currentChannel = null;
 
       socket.onopen = function (e) {
-        addMessage("Connected to server", "System");
+        // addMessage("Connected to server", "System");
+        connectionStatus.classList.add("connected");
+        connectionStatusText.textContent = "Connected";
+
+        joinChannel("general");
       };
 
       socket.onmessage = function (event) {
@@ -142,17 +177,22 @@
         switch (data.type) {
           case "connection":
             myId = data.client_id;
+            connectionStatusText.textContent = `Connected [Client ID: ${myId}]`;
             break;
           case "joined":
-            addMessage(`Joined channel: ${data.channel}`, "System");
+            // addMessage(`Joined channel: ${data.channel}`, "System");
             currentChannel = data.channel;
             updateActiveChannel();
             break;
           case "left":
-            addMessage(`Left channel: ${data.channel}`, "System");
+            // addMessage(`Left channel: ${data.channel}`, "System");
             if (currentChannel === data.channel) {
               currentChannel = null;
               updateActiveChannel();
+            }
+
+            while (messages.firstChild) {
+              messages.removeChild(messages.lastChild);
             }
             break;
           case "message":
@@ -173,7 +213,9 @@
       };
 
       socket.onclose = function (event) {
-        addMessage("Disconnected from server", "System");
+        // addMessage("Disconnected from server", "System");
+        connectionStatus.classList.remove("connected");
+        connectionStatusText.textContent = "Disconnected";
       };
 
       function addMessage(message, fromId, fromIp, isSent) {
@@ -229,7 +271,7 @@
         const channels = document.querySelectorAll(".channel-item");
         channels.forEach((ch) => {
           ch.classList.remove("active");
-          if (ch.textContent.toLowerCase() === currentChannel) {
+          if (ch.textContent.trim().toLowerCase() === currentChannel) {
             ch.classList.add("active");
           }
         });
