@@ -3,7 +3,7 @@ defmodule Hub.WebsocketHandler do
 
   @behaviour :cowboy_websocket
 
-  @ping_interval 10_000
+  @ping_interval 30_000
   @pong_timeout 5_000
 
   def init(req, _state) do
@@ -33,12 +33,14 @@ defmodule Hub.WebsocketHandler do
 
   # Receive message from client
   def websocket_handle({:text, message}, state) do
-    if message == "pong" do
-      {:ok, %{state | last_pong: :os.system_time(:millisecond)}}
-    else
-      broadcast_message(message, state)
-      {:ok, state}
-    end
+    broadcast_message(message, state)
+    {:ok, state}
+  end
+
+  # Handle pong from client
+  def websocket_handle(:pong, state) do
+    # Logger.info("DEBUG: Pong #{state.id} @ #{:os.system_time(:millisecond)}")
+    {:ok, %{state | last_pong: :os.system_time(:millisecond)}}
   end
 
   # Fallback
@@ -54,20 +56,24 @@ defmodule Hub.WebsocketHandler do
      state}
   end
 
+  # Send ping to client
   def websocket_info(:ping, state) do
     # Logger.info("DEBUG: Ping #{state.id} @ #{:os.system_time(:millisecond)}")
     schedule_pong_check()
-    {:reply, {:text, "ping"}, state}
+    {:reply, :ping, state}
   end
 
   def websocket_info(:pong_check, state) do
     current_time = :os.system_time(:millisecond)
 
-    if current_time - state.last_pong > @pong_timeout do
+    # Logger.info("DEBUG: Pong check @ #{:os.system_time(:millisecond)}")
+
+    # The last pong is compared with twice the @pong_timeout due to
+    # :pong_check being executed after a delay of @pong_timeout
+    if current_time - state.last_pong > @pong_timeout * 2 do
       Logger.info("Client timed out: #{state.id}")
       {:stop, state}
     else
-      # Logger.info("DEBUG: Pong #{state.id} @ #{:os.system_time(:millisecond)}")
       schedule_ping()
       {:ok, state}
     end

@@ -107,12 +107,7 @@
       };
 
       socket.onmessage = function (event) {
-        console.log(event.data);
-
-        if (event.data === "ping") {
-          socket.send("pong");
-          return;
-        }
+        // console.log(event.data);
 
         const data = JSON.parse(event.data);
 
