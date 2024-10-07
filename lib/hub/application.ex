@@ -1,13 +1,10 @@
 defmodule Hub.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
-  @moduledoc false
-
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
-    IO.puts("Starting cowboy server...")
+    Logger.info("Starting cowboy server...")
 
     :ets.new(:websocket_clients, [:set, :public, :named_table])
 

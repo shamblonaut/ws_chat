@@ -107,7 +107,15 @@
       };
 
       socket.onmessage = function (event) {
+        console.log(event.data);
+
+        if (event.data === "ping") {
+          socket.send("pong");
+          return;
+        }
+
         const data = JSON.parse(event.data);
+
         // Check if the message contains the client ID
         if (data.client_id && !myId) {
           myId = data.client_id;
