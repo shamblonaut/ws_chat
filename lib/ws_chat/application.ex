@@ -7,6 +7,7 @@ defmodule WsChat.Application do
     Logger.info("Starting cowboy server...")
 
     :ets.new(:websocket_clients, [:set, :public, :named_table])
+    :ets.new(:channel_messages, [:set, :public, :named_table, read_concurrency: true])
 
     children = [
       {Plug.Cowboy,

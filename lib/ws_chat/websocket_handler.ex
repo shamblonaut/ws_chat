@@ -37,6 +37,15 @@ defmodule WsChat.WebsocketHandler do
       {:ok, %{"type" => "join", "channel" => channel}} ->
         new_state = %{state | channels: [channel | state.channels] |> Enum.uniq()}
         write_client_state(self(), new_state)
+
+        case :ets.lookup(:channel_messages, channel) do
+          [] ->
+            :ets.insert(:channel_messages, {channel, []})
+
+          _ ->
+            :ok
+        end
+
         {:reply, {:text, Jason.encode!(%{type: "joined", channel: channel})}, new_state}
 
       {:ok, %{"type" => "leave", "channel" => channel}} ->
@@ -44,9 +53,26 @@ defmodule WsChat.WebsocketHandler do
         write_client_state(self(), new_state)
         {:reply, {:text, Jason.encode!(%{type: "left", channel: channel})}, new_state}
 
+      {:ok, %{"type" => "history", "channel" => channel}} ->
+        history = get_channel_messages(channel)
+
+        {:reply, {:text, Jason.encode!(%{type: "history", channel: channel, messages: history})},
+         state}
+
       {:ok, %{"type" => "message", "channel" => channel, "content" => content}} ->
         if channel in state.channels do
           broadcast_message(channel, content, state)
+
+          :ets.update_element(
+            :channel_messages,
+            channel,
+            {2,
+             [
+               %{from_id: state.id, from_ip: state.ip, content: content}
+               | get_channel_messages(channel)
+             ]}
+          )
+
           {:ok, state}
         else
           {:reply, {:text, Jason.encode!(%{type: "error", message: "Not in channel"})}, state}
@@ -122,6 +148,14 @@ defmodule WsChat.WebsocketHandler do
       nil,
       :websocket_clients
     )
+  end
+
+  defp get_channel_messages(channel) do
+    case :ets.lookup(:channel_messages, channel) do
+      [] -> []
+      # Reverse to show oldest first
+      [{_, messages}] -> Enum.reverse(messages)
+    end
   end
 
   defp schedule_ping do

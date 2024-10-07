@@ -57,8 +57,9 @@
       }
       .channel-item {
         cursor: pointer;
-        padding: 5px;
-        margin-bottom: 5px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-bottom: 4px;
       }
       .channel-item:hover {
         background-color: #d0d0d0;
@@ -183,6 +184,7 @@
             // addMessage(`Joined channel: ${data.channel}`, "System");
             currentChannel = data.channel;
             updateActiveChannel();
+            requestHistory(currentChannel);
             break;
           case "left":
             // addMessage(`Left channel: ${data.channel}`, "System");
@@ -194,6 +196,16 @@
             while (messages.firstChild) {
               messages.removeChild(messages.lastChild);
             }
+            break;
+          case "history":
+            data.messages.forEach((message) => {
+              addMessage(
+                message.content,
+                message.from_id,
+                message.from_ip,
+                message.from_id === myId,
+              );
+            });
             break;
           case "message":
             addMessage(
@@ -275,6 +287,14 @@
             ch.classList.add("active");
           }
         });
+      }
+
+      function requestHistory(channel) {
+        const historyRequest = {
+          type: "history",
+          channel: channel,
+        };
+        socket.send(JSON.stringify(historyRequest));
       }
 
       messageInput.addEventListener("keypress", function (e) {
