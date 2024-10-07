@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebSocket Chat</title>
+    <title>WebSocket Chat with Channels</title>
     <style>
       body,
       html {
@@ -24,6 +24,27 @@
         padding: 10px 20px;
         text-align: center;
         font-size: 1.5em;
+      }
+      .chat-body {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+      }
+      .channel-list {
+        background-color: #e3e3e3;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      .channel-item {
+        cursor: pointer;
+        padding: 5px;
+        margin-bottom: 5px;
+      }
+      .channel-item:hover {
+        background-color: #d0d0d0;
+      }
+      .channel-item.active {
+        background-color: #4a69bd;
+        color: white;
       }
       .chat-messages {
         overflow-y: auto;
@@ -84,8 +105,17 @@
   </head>
   <body>
     <div class="chat-container">
-      <div class="chat-header">WebSocket Chat</div>
-      <div id="messages" class="chat-messages"></div>
+      <div class="chat-header">WebSocket Chat with Channels</div>
+      <div class="chat-body">
+        <div class="channel-list" id="channelList">
+          <div class="channel-item" onclick="joinChannel('general')">
+            General
+          </div>
+          <div class="channel-item" onclick="joinChannel('random')">Random</div>
+          <div class="channel-item" onclick="joinChannel('tech')">Tech</div>
+        </div>
+        <div id="messages" class="chat-messages"></div>
+      </div>
       <div class="chat-input">
         <input type="text" id="messageInput" placeholder="Type a message..." />
         <button onclick="sendMessage()">Send</button>
@@ -101,29 +131,45 @@
       const messageInput = document.getElementById("messageInput");
 
       let myId = null;
+      let currentChannel = null;
 
       socket.onopen = function (e) {
         addMessage("Connected to server", "System");
       };
 
       socket.onmessage = function (event) {
-        // console.log(event.data);
-
         const data = JSON.parse(event.data);
-
-        // Check if the message contains the client ID
-        if (data.client_id && !myId) {
-          myId = data.client_id;
-          return;
+        switch (data.type) {
+          case "connection":
+            myId = data.client_id;
+            break;
+          case "joined":
+            addMessage(`Joined channel: ${data.channel}`, "System");
+            currentChannel = data.channel;
+            updateActiveChannel();
+            break;
+          case "left":
+            addMessage(`Left channel: ${data.channel}`, "System");
+            if (currentChannel === data.channel) {
+              currentChannel = null;
+              updateActiveChannel();
+            }
+            break;
+          case "message":
+            addMessage(
+              data.content,
+              data.from_id,
+              data.from_ip,
+              data.from_id === myId,
+            );
+            break;
+          case "ping":
+            socket.send("pong");
+            break;
+          case "error":
+            addMessage(`Error: ${data.message}`, "System");
+            break;
         }
-
-        // Handle normal chat messages
-        addMessage(
-          data.message,
-          data.from_id,
-          data.from_ip,
-          data.from_id === myId,
-        );
       };
 
       socket.onclose = function (event) {
@@ -150,10 +196,43 @@
 
       function sendMessage() {
         const message = messageInput.value.trim();
-        if (message) {
-          socket.send(message);
+        if (message && currentChannel) {
+          socket.send(
+            JSON.stringify({
+              type: "message",
+              channel: currentChannel,
+              content: message,
+            }),
+          );
           messageInput.value = "";
         }
+      }
+
+      function joinChannel(channel) {
+        if (currentChannel) {
+          socket.send(
+            JSON.stringify({
+              type: "leave",
+              channel: currentChannel,
+            }),
+          );
+        }
+        socket.send(
+          JSON.stringify({
+            type: "join",
+            channel: channel,
+          }),
+        );
+      }
+
+      function updateActiveChannel() {
+        const channels = document.querySelectorAll(".channel-item");
+        channels.forEach((ch) => {
+          ch.classList.remove("active");
+          if (ch.textContent.toLowerCase() === currentChannel) {
+            ch.classList.add("active");
+          }
+        });
       }
 
       messageInput.addEventListener("keypress", function (e) {
