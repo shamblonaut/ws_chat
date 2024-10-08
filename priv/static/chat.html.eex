@@ -5,6 +5,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebSocket Chat</title>
     <style>
+      :root {
+        --base: #1e1e2e;
+        --mantle: #181825;
+        --crust: #11111b;
+        --text: #cdd6f4;
+        --subtext1: #bac2de;
+        --subtext0: #a6adc8;
+        --overlay0: #6c7086;
+        --overlay1: #585b70;
+        --overlay2: #45475a;
+        --surface0: #313244;
+        --surface1: #292c3c;
+        --surface2: #252634;
+        --blue: #1e66f5;
+        --lavender: #b4befe;
+        --pink: #f5c2e7;
+        --green: #a6e3a1;
+        --yellow: #f9e2af;
+        --peach: #fab387;
+        --red: #e78284;
+        --maroon: #eba0ac;
+        --teal: #94e2d5;
+      }
+
+      body {
+        background-color: var(--base);
+        color: var(--text);
+      }
+
+      .chat-container {
+        background-color: var(--mantle);
+      }
+
+      .chat-name,
+      .pane-header {
+        background-color: var(--blue);
+        color: var(--text);
+      }
+
+      .connection {
+        background-color: var(--red);
+      }
+
+      .connection.connected {
+        background-color: var(--green);
+      }
+
+      .status-circle {
+        background-color: #d20f39;
+      }
+
+      .connected .status-circle {
+        background-color: #40a02b;
+      }
+
+      .status-text {
+        color: #d20f39;
+      }
+
+      .connected .status-text {
+        color: #40a02b;
+      }
+
+      .chat-messages {
+        background-color: var(--surface0);
+      }
+
+      .message {
+        background-color: var(--surface1);
+        color: var(--text);
+      }
+
+      .message.received {
+        background-color: var(--mantle);
+      }
+
+      .message.sent {
+        background-color: var(--blue);
+        color: var(--text);
+      }
+
+      .chat-input {
+        background-color: var(--surface2);
+        border-top: 1px solid var(--overlay0);
+      }
+
+      #messageInput {
+        background-color: var(--mantle);
+        color: var(--text);
+        border: 1px solid var(--overlay0);
+      }
+
+      button {
+        background-color: var(--blue);
+        color: var(--text);
+      }
+
+      button:hover {
+        background-color: var(--lavender);
+      }
+
+      .pane {
+        background-color: var(--surface1);
+      }
+
+      .channel-item {
+        background-color: var(--surface0);
+        color: var(--text);
+      }
+
+      .channel-item:hover {
+        background-color: var(--surface2);
+      }
+
+      .channel-item.active,
+      .peer-item {
+        background-color: var(--blue);
+        color: var(--text);
+      }
+
+      .overlay {
+        background-color: var(--crust);
+      }
+
       * {
         margin: 0;
         padding: 0;
@@ -20,7 +144,6 @@
         display: flex;
         flex-direction: column;
         height: 100%;
-        background-color: #f0f0f0;
         position: relative;
       }
 
@@ -31,7 +154,7 @@
         width: 100%;
         height: 100%;
         display: none;
-        background-color: #00000080;
+        opacity: 0.5;
         z-index: 1;
       }
       .overlay.visible {
@@ -40,8 +163,6 @@
 
       .chat-name,
       .pane-header {
-        background-color: #4a69bd;
-        color: white;
         padding: 16px;
         text-align: center;
         font-size: 1.5em;
@@ -51,21 +172,12 @@
         justify-content: center;
         align-items: center;
         padding: 8px;
-        color: white;
-        background-color: #f38ba8;
-      }
-      .connection.connected {
-        background-color: #a6e3a1;
       }
       .status-circle {
         width: 8px;
         height: 8px;
         border-radius: 50%;
         margin-right: 8px;
-        background-color: #d20f39;
-      }
-      .connected .status-circle {
-        background-color: #40a02b;
       }
 
       .chat-messages {
@@ -83,18 +195,14 @@
         margin-bottom: 15px;
         padding: 10px 15px;
         border-radius: 20px;
-        background-color: #e3e3e3;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         word-wrap: break-word;
       }
       .message.received {
         align-self: flex-start;
-        background-color: #ffffff;
       }
       .message.sent {
         align-self: flex-end;
-        background-color: #4a69bd;
-        color: white;
       }
       .message-info {
         font-size: 0.8em;
@@ -110,18 +218,14 @@
         display: grid;
         grid-template-columns: 1fr auto;
         padding: 20px;
-        background-color: white;
-        border-top: 1px solid #e3e3e3;
       }
       #messageInput {
         padding: 10px;
-        border: 1px solid #ccc;
         border-radius: 20px;
         font-size: 1em;
       }
       button {
         padding: 10px 20px;
-        background-color: #4a69bd;
         color: white;
         border: none;
         border-radius: 20px;
@@ -129,16 +233,12 @@
         font-size: 1em;
         margin-left: 10px;
       }
-      button:hover {
-        background-color: #3c5aa6;
-      }
 
       .pane {
         position: fixed;
         top: 0;
         bottom: 0;
         width: 300px;
-        background-color: #ccc;
         transform: translateX(-100%); /* Hidden by default */
         transition: transform 0.3s ease;
         z-index: 2;
@@ -172,14 +272,6 @@
 
       .channel-item {
         cursor: pointer;
-      }
-      .channel-item:hover {
-        background-color: #d0d0d0;
-      }
-      .channel-item.active,
-      .peer-item {
-        background-color: #4a69bd;
-        color: white;
       }
     </style>
   </head>
