@@ -5,23 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebSocket Chat</title>
     <style>
-      body,
-      html {
+      * {
         margin: 0;
         padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        height: 100vh;
+        overflow: hidden;
         font-family: Arial, sans-serif;
-        height: 100%;
+        position: relative;
       }
       .chat-container {
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         background-color: #f0f0f0;
+        position: relative;
       }
-      .chat-name {
+
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        background-color: #00000080;
+        z-index: 1;
+      }
+      .overlay.visible {
+        display: block;
+      }
+
+      .chat-name,
+      .pane-header {
         background-color: #4a69bd;
         color: white;
-        padding: 10px 20px;
+        padding: 16px;
         text-align: center;
         font-size: 1.5em;
       }
@@ -46,34 +67,17 @@
       .connected .status-circle {
         background-color: #40a02b;
       }
-      .chat-body {
-        display: grid;
-        grid-template-columns: 200px 1fr;
-      }
-      .channel-list {
-        background-color: #e3e3e3;
-        padding: 20px;
-        overflow-y: auto;
-      }
-      .channel-item {
-        cursor: pointer;
-        padding: 4px 8px;
-        border-radius: 4px;
-        margin-bottom: 4px;
-      }
-      .channel-item:hover {
-        background-color: #d0d0d0;
-      }
-      .channel-item.active {
-        background-color: #4a69bd;
-        color: white;
-      }
+
       .chat-messages {
-        overflow-y: auto;
+        flex: 1;
+        overflow-y: scroll;
         padding: 20px;
+        padding-bottom: 170px;
         display: flex;
         flex-direction: column;
+        width: 100%;
       }
+
       .message {
         max-width: 80%;
         margin-bottom: 15px;
@@ -98,6 +102,11 @@
         opacity: 0.7;
       }
       .chat-input {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100px;
         display: grid;
         grid-template-columns: 1fr auto;
         padding: 20px;
@@ -123,10 +132,54 @@
       button:hover {
         background-color: #3c5aa6;
       }
+
+      .pane {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        width: 300px;
+        background-color: #ccc;
+        transform: translateX(-100%); /* Hidden by default */
+        transition: transform 0.3s ease;
+        z-index: 2;
+      }
+
+      .left-pane {
+        left: 0;
+      }
+
+      .right-pane {
+        right: 0;
+        transform: translateX(100%); /* Hidden by default */
+      }
+
+      .pane.visible {
+        transform: translateX(0); /* Fully visible */
+      }
+
+      .channel-list {
+        padding: 20px;
+        height: 100%;
+        overflow-y: auto;
+      }
+      .channel-item {
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-bottom: 4px;
+      }
+      .channel-item:hover {
+        background-color: #d0d0d0;
+      }
+      .channel-item.active {
+        background-color: #4a69bd;
+        color: white;
+      }
     </style>
   </head>
   <body>
     <div class="chat-container">
+      <div class="overlay"></div>
       <div class="chat-header">
         <div class="chat-name">WebSocket Chat</div>
         <div class="connection">
@@ -134,20 +187,22 @@
           <div class="status-text">Disconnected</div>
         </div>
       </div>
-      <div class="chat-body">
-        <div class="channel-list" id="channelList">
-          <div class="channel-item" onclick="joinChannel('general')">
-            General
-          </div>
-          <div class="channel-item" onclick="joinChannel('random')">Random</div>
-          <div class="channel-item" onclick="joinChannel('tech')">Tech</div>
-        </div>
-        <div id="messages" class="chat-messages"></div>
-      </div>
+      <div id="messages" class="chat-messages"></div>
       <div class="chat-input">
         <input type="text" id="messageInput" placeholder="Type a message..." />
         <button onclick="sendMessage()">Send</button>
       </div>
+    </div>
+    <div class="pane left-pane">
+      <div class="pane-header">Channels</div>
+      <div class="channel-list" id="channelList">
+        <div class="channel-item" onclick="joinChannel('general')">General</div>
+        <div class="channel-item" onclick="joinChannel('random')">Random</div>
+        <div class="channel-item" onclick="joinChannel('tech')">Tech</div>
+      </div>
+    </div>
+    <div class="pane right-pane">
+      <div class="pane-header">Online</div>
     </div>
 
     <script>
@@ -287,6 +342,7 @@
             ch.classList.add("active");
           }
         });
+        closeLeftPane();
       }
 
       function requestHistory(channel) {
@@ -302,6 +358,100 @@
           sendMessage();
         }
       });
+
+      // Swipe gesture functionality
+      let touchStartX = 0;
+      let touchEndX = 0;
+      let touchStartY = 0;
+      let touchEndY = 0;
+
+      const minSwipeDistance = 50;
+      const maxVerticalSwipeThreshold = 50; // Max Y movement to consider it a horizontal swipe
+
+      const leftPane = document.querySelector(".left-pane");
+      const rightPane = document.querySelector(".right-pane");
+      const chatOverlay = document.querySelector(".overlay");
+
+      let isLeftPaneOpen = false;
+      let isRightPaneOpen = false;
+
+      // Detect when touch starts
+      document.addEventListener("touchstart", (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+      });
+
+      // Detect when touch ends
+      document.addEventListener("touchend", (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        touchEndY = e.changedTouches[0].screenY;
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+
+        // Ignore if it's a vertical swipe
+        if (Math.abs(deltaY) > maxVerticalSwipeThreshold) {
+          return;
+        }
+
+        // Handle swipe to right (show left pane) or swipe to left (show right pane)
+        if (!isLeftPaneOpen && !isRightPaneOpen) {
+          // No panes are open; determine whether to open left or right pane
+          if (deltaX > minSwipeDistance) {
+            // Swiped right -> Open left pane
+            openLeftPane();
+          } else if (deltaX < -minSwipeDistance) {
+            // Swiped left -> Open right pane
+            openRightPane();
+          }
+        } else if (isLeftPaneOpen) {
+          // If left pane is open, close it on right swipe
+          if (deltaX < -minSwipeDistance) {
+            closeLeftPane();
+          }
+        } else if (isRightPaneOpen) {
+          // If right pane is open, close it on left swipe
+          if (deltaX > minSwipeDistance) {
+            closeRightPane();
+          }
+        }
+
+        // Reset the swipe variables
+        touchStartX = 0;
+        touchEndX = 0;
+        touchStartY = 0;
+        touchEndY = 0;
+      });
+
+      // Function to open the left pane
+      function openLeftPane() {
+        leftPane.classList.add("visible");
+        chatOverlay.classList.add("visible");
+        isLeftPaneOpen = true;
+        isRightPaneOpen = false;
+      }
+
+      // Function to open the right pane
+      function openRightPane() {
+        rightPane.classList.add("visible");
+        chatOverlay.classList.add("visible");
+        isRightPaneOpen = true;
+        isLeftPaneOpen = false;
+      }
+
+      // Function to close the left pane
+      function closeLeftPane() {
+        leftPane.classList.remove("visible");
+        chatOverlay.classList.remove("visible");
+        isLeftPaneOpen = false;
+      }
+
+      // Function to close the right pane
+      function closeRightPane() {
+        rightPane.classList.remove("visible");
+        chatOverlay.classList.remove("visible");
+        isRightPaneOpen = false;
+      }
     </script>
   </body>
 </html>
