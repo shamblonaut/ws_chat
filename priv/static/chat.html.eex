@@ -157,21 +157,27 @@
         transform: translateX(0); /* Fully visible */
       }
 
-      .channel-list {
-        padding: 20px;
+      .channel-list,
+      .peer-list {
+        padding: 16px;
         height: 100%;
-        overflow-y: auto;
+        overflow-y: scroll;
       }
-      .channel-item {
-        cursor: pointer;
+      .channel-item,
+      .peer-item {
         padding: 4px 8px;
         border-radius: 4px;
         margin-bottom: 4px;
       }
+
+      .channel-item {
+        cursor: pointer;
+      }
       .channel-item:hover {
         background-color: #d0d0d0;
       }
-      .channel-item.active {
+      .channel-item.active,
+      .peer-item {
         background-color: #4a69bd;
         color: white;
       }
@@ -203,6 +209,7 @@
     </div>
     <div class="pane right-pane">
       <div class="pane-header">Online</div>
+      <div class="peer-list"></div>
     </div>
 
     <script>
@@ -261,6 +268,9 @@
                 message.from_id === myId,
               );
             });
+            break;
+          case "peers":
+            updatePeers(data.peers);
             break;
           case "message":
             addMessage(
@@ -351,6 +361,22 @@
           channel: channel,
         };
         socket.send(JSON.stringify(historyRequest));
+      }
+
+      function updatePeers(peers) {
+        console.log(peers);
+
+        const peerList = document.querySelector(".peer-list");
+        while (peerList.firstChild) {
+          peerList.removeChild(peerList.lastChild);
+        }
+
+        peers.forEach((peer) => {
+          const peerItem = document.createElement("div");
+          peerItem.className = "peer-item";
+          peerItem.textContent = `${peer.id} (${peer.ip}) in ${peer.channels[0]}`;
+          peerList.appendChild(peerItem);
+        });
       }
 
       messageInput.addEventListener("keypress", function (e) {

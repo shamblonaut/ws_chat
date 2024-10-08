@@ -18,6 +18,8 @@ defmodule WsChat.WebsocketHandler do
     write_client_state(self(), state)
 
     Logger.info("Client connected: #{state.id} (#{state.ip})")
+    broadcast_peers()
+
     schedule_ping()
 
     # Send the client their own ID after connection
@@ -25,9 +27,11 @@ defmodule WsChat.WebsocketHandler do
   end
 
   def terminate(_reason, _req, state) do
-    Logger.info("Client disconnected: #{state.id} (#{state.ip})")
-
     :ets.delete(:websocket_clients, self())
+
+    Logger.info("Client disconnected: #{state.id} (#{state.ip})")
+    broadcast_peers()
+
     :ok
   end
 
@@ -37,6 +41,7 @@ defmodule WsChat.WebsocketHandler do
       {:ok, %{"type" => "join", "channel" => channel}} ->
         new_state = %{state | channels: [channel | state.channels] |> Enum.uniq()}
         write_client_state(self(), new_state)
+        broadcast_peers()
 
         case :ets.lookup(:channel_messages, channel) do
           [] ->
@@ -58,6 +63,11 @@ defmodule WsChat.WebsocketHandler do
 
         {:reply, {:text, Jason.encode!(%{type: "history", channel: channel, messages: history})},
          state}
+
+      # {:ok, %{"type" => "peers"}} ->
+      #   {:reply,
+      #    {:text, Jason.encode!(%{type: "peers", peers: :ets.tab2list(:websocket_clients)})},
+      #    state}
 
       {:ok, %{"type" => "message", "channel" => channel, "content" => content}} ->
         if channel in state.channels do
@@ -96,7 +106,7 @@ defmodule WsChat.WebsocketHandler do
   end
 
   # Broadcast message to all clients
-  def websocket_info({:broadcast, channel, from_id, from_ip, content}, state) do
+  def websocket_info({:broadcast_message, channel, from_id, from_ip, content}, state) do
     if channel in state.channels do
       {:reply,
        {:text,
@@ -105,6 +115,19 @@ defmodule WsChat.WebsocketHandler do
     else
       {:ok, state}
     end
+  end
+
+  def websocket_info(:broadcast_peers, state) do
+    {:reply,
+     {:text,
+      Jason.encode!(%{
+        type: "peers",
+        peers:
+          :ets.tab2list(:websocket_clients)
+          |> Enum.map(fn {_pid, client_info} ->
+            client_info
+          end)
+      })}, state}
   end
 
   # Send ping to client
@@ -142,8 +165,18 @@ defmodule WsChat.WebsocketHandler do
     :ets.foldl(
       fn {pid, client_state}, _ ->
         if channel in client_state.channels do
-          send(pid, {:broadcast, channel, from_id, from_ip, content})
+          send(pid, {:broadcast_message, channel, from_id, from_ip, content})
         end
+      end,
+      nil,
+      :websocket_clients
+    )
+  end
+
+  defp broadcast_peers do
+    :ets.foldl(
+      fn {pid, _}, _ ->
+        send(pid, :broadcast_peers)
       end,
       nil,
       :websocket_clients
