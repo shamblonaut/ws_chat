@@ -91,7 +91,7 @@
         border-top: 1px solid var(--overlay0);
       }
 
-      #messageInput {
+      .message-input {
         background-color: var(--mantle);
         color: var(--text);
         border: 1px solid var(--overlay0);
@@ -219,7 +219,7 @@
         grid-template-columns: 1fr auto;
         padding: 20px;
       }
-      #messageInput {
+      .message-input {
         padding: 10px;
         border-radius: 20px;
         font-size: 1em;
@@ -285,19 +285,19 @@
           <div class="status-text">Disconnected</div>
         </div>
       </div>
-      <div id="messages" class="chat-messages"></div>
+      <div class="chat-messages"></div>
       <div class="chat-input">
-        <input type="text" id="messageInput" placeholder="Type a message..." />
+        <input
+          type="text"
+          class="message-input"
+          placeholder="Type a message..."
+        />
         <button onclick="sendMessage()">Send</button>
       </div>
     </div>
     <div class="pane left-pane">
       <div class="pane-header">Channels</div>
-      <div class="channel-list" id="channelList">
-        <div class="channel-item" onclick="joinChannel('general')">General</div>
-        <div class="channel-item" onclick="joinChannel('random')">Random</div>
-        <div class="channel-item" onclick="joinChannel('tech')">Tech</div>
-      </div>
+      <div class="channel-list"></div>
     </div>
     <div class="pane right-pane">
       <div class="pane-header">Online</div>
@@ -313,8 +313,8 @@
       const connectionStatus = document.querySelector(".connection");
       const connectionStatusText = document.querySelector(".status-text");
 
-      const messages = document.getElementById("messages");
-      const messageInput = document.getElementById("messageInput");
+      const messages = document.querySelector(".chat-messages");
+      const messageInput = document.querySelector(".message-input");
 
       let myId = null;
       let currentChannel = null;
@@ -350,6 +350,9 @@
             while (messages.firstChild) {
               messages.removeChild(messages.lastChild);
             }
+            break;
+          case "channels":
+            updateChannels(data.channels);
             break;
           case "history":
             data.messages.forEach((message) => {
@@ -456,8 +459,6 @@
       }
 
       function updatePeers(peers) {
-        console.log(peers);
-
         const peerList = document.querySelector(".peer-list");
         while (peerList.firstChild) {
           peerList.removeChild(peerList.lastChild);
@@ -468,6 +469,21 @@
           peerItem.className = "peer-item";
           peerItem.textContent = `${peer.id} (${peer.ip}) in ${peer.channels[0]}`;
           peerList.appendChild(peerItem);
+        });
+      }
+
+      function updateChannels(channels) {
+        const channelList = document.querySelector(".channel-list");
+        while (channelList.firstChild) {
+          channelList.removeChild(channelList.lastChild);
+        }
+
+        channels.forEach((channel) => {
+          const channelItem = document.createElement("div");
+          channelItem.className = "channel-item";
+          channelItem.textContent = channel;
+          channelItem.addEventListener("click", () => joinChannel(channel));
+          channelList.appendChild(channelItem);
         });
       }
 

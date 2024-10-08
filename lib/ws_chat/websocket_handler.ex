@@ -21,6 +21,7 @@ defmodule WsChat.WebsocketHandler do
     broadcast_peers()
 
     schedule_ping()
+    send(self(), :broadcast_channels)
 
     # Send the client their own ID after connection
     {:reply, {:text, Jason.encode!(%{type: "connection", client_id: state.id})}, state}
@@ -39,35 +40,39 @@ defmodule WsChat.WebsocketHandler do
   def websocket_handle({:text, message}, state) do
     case Jason.decode(message) do
       {:ok, %{"type" => "join", "channel" => channel}} ->
-        new_state = %{state | channels: [channel | state.channels] |> Enum.uniq()}
-        write_client_state(self(), new_state)
-        broadcast_peers()
+        if channel in get_channels() do
+          new_state = %{state | channels: [channel | state.channels] |> Enum.uniq()}
+          write_client_state(self(), new_state)
+          broadcast_peers()
 
-        case :ets.lookup(:channel_messages, channel) do
-          [] ->
-            :ets.insert(:channel_messages, {channel, []})
+          case :ets.lookup(:channel_messages, channel) do
+            [] ->
+              :ets.insert(:channel_messages, {channel, []})
 
-          _ ->
-            :ok
+            _ ->
+              :ok
+          end
+
+          {:reply, {:text, Jason.encode!(%{type: "joined", channel: channel})}, new_state}
+        else
+          {:reply, {:text, Jason.encode!(%{type: "error", message: "Channel does not exist"})},
+           state}
         end
 
-        {:reply, {:text, Jason.encode!(%{type: "joined", channel: channel})}, new_state}
-
       {:ok, %{"type" => "leave", "channel" => channel}} ->
-        new_state = %{state | channels: state.channels -- [channel]}
-        write_client_state(self(), new_state)
-        {:reply, {:text, Jason.encode!(%{type: "left", channel: channel})}, new_state}
+        if channel in state.channels do
+          new_state = %{state | channels: state.channels -- [channel]}
+          write_client_state(self(), new_state)
+          {:reply, {:text, Jason.encode!(%{type: "left", channel: channel})}, new_state}
+        else
+          {:reply, {:text, Jason.encode!(%{type: "error", message: "Not in channel"})}, state}
+        end
 
       {:ok, %{"type" => "history", "channel" => channel}} ->
         history = get_channel_messages(channel)
 
         {:reply, {:text, Jason.encode!(%{type: "history", channel: channel, messages: history})},
          state}
-
-      # {:ok, %{"type" => "peers"}} ->
-      #   {:reply,
-      #    {:text, Jason.encode!(%{type: "peers", peers: :ets.tab2list(:websocket_clients)})},
-      #    state}
 
       {:ok, %{"type" => "message", "channel" => channel, "content" => content}} ->
         if channel in state.channels do
@@ -115,6 +120,15 @@ defmodule WsChat.WebsocketHandler do
     else
       {:ok, state}
     end
+  end
+
+  def websocket_info(:broadcast_channels, state) do
+    {:reply,
+     {:text,
+      Jason.encode!(%{
+        type: "channels",
+        channels: get_channels()
+      })}, state}
   end
 
   def websocket_info(:broadcast_peers, state) do
@@ -181,6 +195,13 @@ defmodule WsChat.WebsocketHandler do
       nil,
       :websocket_clients
     )
+  end
+
+  defp get_channels do
+    :ets.tab2list(:channels)
+    |> Enum.map(fn {channel} ->
+      channel
+    end)
   end
 
   defp get_channel_messages(channel) do
