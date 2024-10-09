@@ -38,26 +38,18 @@
         background-color: var(--mantle);
       }
 
-      .chat-name,
+      .chat-header,
       .pane-header {
         background-color: var(--blue);
         color: var(--text);
       }
 
-      .connection {
-        background-color: var(--red);
+      .broken-link {
+        stroke: var(--red);
       }
 
-      .connection.connected {
-        background-color: var(--green);
-      }
-
-      .status-circle {
-        background-color: #d20f39;
-      }
-
-      .connected .status-circle {
-        background-color: #40a02b;
+      .connected-link {
+        stroke: var(--teal);
       }
 
       .status-text {
@@ -66,6 +58,11 @@
 
       .connected .status-text {
         color: #40a02b;
+      }
+
+      .channel-header {
+        background-color: var(--surface2);
+        border-bottom: 1px solid var(--overlay0);
       }
 
       .chat-messages {
@@ -125,6 +122,11 @@
         color: var(--text);
       }
 
+      .peer-item.self {
+        background-color: var(--teal);
+        color: var(--surface2);
+      }
+
       .overlay {
         background-color: var(--crust);
       }
@@ -161,11 +163,22 @@
         display: block;
       }
 
-      .chat-name,
+      .chat-header,
       .pane-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         padding: 16px;
         text-align: center;
         font-size: 1.5em;
+      }
+      .connected-link,
+      .broken-link {
+        display: none;
+      }
+      .connected-link.visible,
+      .broken-link.visible {
+        display: block;
       }
       .connection {
         display: flex;
@@ -180,6 +193,11 @@
         margin-right: 8px;
       }
 
+      .channel-header {
+        text-align: center;
+        padding: 8px;
+        font-size: 1.25rem;
+      }
       .chat-messages {
         flex: 1;
         overflow-y: scroll;
@@ -224,12 +242,14 @@
         border-radius: 20px;
         font-size: 1em;
       }
+
       button {
-        padding: 10px 20px;
-        color: white;
         border: none;
-        border-radius: 20px;
         cursor: pointer;
+      }
+      .send-message {
+        padding: 10px 20px;
+        border-radius: 20px;
         font-size: 1em;
         margin-left: 10px;
       }
@@ -279,12 +299,74 @@
     <div class="chat-container">
       <div class="overlay"></div>
       <div class="chat-header">
+        <button class="open-channels-pane">
+          <svg
+            class="hamburger"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-menu"
+          >
+            <line x1="4" x2="20" y1="12" y2="12" />
+            <line x1="4" x2="20" y1="6" y2="6" />
+            <line x1="4" x2="20" y1="18" y2="18" />
+          </svg>
+        </button>
         <div class="chat-name">WebSocket Chat</div>
-        <div class="connection">
-          <div class="status-circle"></div>
-          <div class="status-text">Disconnected</div>
-        </div>
+        <button class="open-peers-pane">
+          <svg
+            class="connected-link"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-link"
+          >
+            <path
+              d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+            />
+            <path
+              d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+            />
+          </svg>
+          <svg
+            class="broken-link visible"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-unlink"
+          >
+            <path
+              d="m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"
+            />
+            <path
+              d="m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"
+            />
+            <line x1="8" x2="8" y1="2" y2="5" />
+            <line x1="2" x2="5" y1="8" y2="8" />
+            <line x1="16" x2="16" y1="19" y2="22" />
+            <line x1="19" x2="22" y1="16" y2="16" />
+          </svg>
+        </button>
       </div>
+      <div class="channel-header"></div>
       <div class="chat-messages"></div>
       <div class="chat-input">
         <input
@@ -292,7 +374,7 @@
           class="message-input"
           placeholder="Type a message..."
         />
-        <button onclick="sendMessage()">Send</button>
+        <button class="send-message" onclick="sendMessage()">Send</button>
       </div>
     </div>
     <div class="pane left-pane">
@@ -310,9 +392,13 @@
       // const wsHost = "localhost:4000";
       const socket = new WebSocket(`${wsProtocol}//${wsHost}/chat/ws`);
 
-      const connectionStatus = document.querySelector(".connection");
-      const connectionStatusText = document.querySelector(".status-text");
+      // const connectionStatus = document.querySelector(".connection");
+      // const connectionStatusText = document.querySelector(".status-text");
 
+      const channelsPaneButton = document.querySelector(".open-channels-pane");
+      const peersPaneButton = document.querySelector(".open-peers-pane");
+
+      const channelHeader = document.querySelector(".channel-header");
       const messages = document.querySelector(".chat-messages");
       const messageInput = document.querySelector(".message-input");
 
@@ -320,9 +406,8 @@
       let currentChannel = null;
 
       socket.onopen = function (e) {
-        // addMessage("Connected to server", "System");
-        connectionStatus.classList.add("connected");
-        connectionStatusText.textContent = "Connected";
+        document.querySelector(".connected-link").classList.add("visible");
+        document.querySelector(".broken-link").classList.remove("visible");
 
         joinChannel("general");
       };
@@ -385,9 +470,8 @@
       };
 
       socket.onclose = function (event) {
-        // addMessage("Disconnected from server", "System");
-        connectionStatus.classList.remove("connected");
-        connectionStatusText.textContent = "Disconnected";
+        document.querySelector(".connected-link").classList.remove("visible");
+        document.querySelector(".broken-link").classList.add("visible");
       };
 
       function addMessage(message, fromId, fromIp, isSent) {
@@ -448,6 +532,7 @@
           }
         });
         closeLeftPane();
+        channelHeader.textContent = currentChannel;
       }
 
       function requestHistory(channel) {
@@ -469,6 +554,10 @@
           peerItem.className = "peer-item";
           peerItem.textContent = `${peer.id} (${peer.ip}) in ${peer.channels[0]}`;
           peerList.appendChild(peerItem);
+
+          if (peer.id === myId) {
+            peerItem.classList.add("self");
+          }
         });
       }
 
@@ -493,6 +582,24 @@
         }
       });
 
+      // Panes
+      const leftPane = document.querySelector(".left-pane");
+      const rightPane = document.querySelector(".right-pane");
+      const chatOverlay = document.querySelector(".overlay");
+
+      let isLeftPaneOpen = false;
+      let isRightPaneOpen = false;
+      channelsPaneButton.addEventListener("click", () => {
+        openLeftPane();
+      });
+      peersPaneButton.addEventListener("click", () => {
+        openRightPane();
+      });
+      chatOverlay.addEventListener("click", () => {
+        closeLeftPane();
+        closeRightPane();
+      });
+
       // Swipe gesture functionality
       let touchStartX = 0;
       let touchEndX = 0;
@@ -501,13 +608,6 @@
 
       const minSwipeDistance = 50;
       const maxVerticalSwipeThreshold = 50; // Max Y movement to consider it a horizontal swipe
-
-      const leftPane = document.querySelector(".left-pane");
-      const rightPane = document.querySelector(".right-pane");
-      const chatOverlay = document.querySelector(".overlay");
-
-      let isLeftPaneOpen = false;
-      let isRightPaneOpen = false;
 
       // Detect when touch starts
       document.addEventListener("touchstart", (e) => {
