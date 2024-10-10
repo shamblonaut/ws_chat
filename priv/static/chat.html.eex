@@ -44,11 +44,11 @@
         color: var(--text);
       }
 
-      .broken-link {
+      .lucide-unlink {
         stroke: var(--red);
       }
 
-      .connected-link {
+      .lucide-link {
         stroke: var(--teal);
       }
 
@@ -97,10 +97,6 @@
       button {
         background-color: var(--blue);
         color: var(--text);
-      }
-
-      button:hover {
-        background-color: var(--lavender);
       }
 
       .pane {
@@ -172,12 +168,12 @@
         text-align: center;
         font-size: 1.5em;
       }
-      .connected-link,
-      .broken-link {
+      .lucide-link,
+      .lucide-unlink {
         display: none;
       }
-      .connected-link.visible,
-      .broken-link.visible {
+      .lucide-link.visible,
+      .lucide-unlink.visible {
         display: block;
       }
       .connection {
@@ -301,7 +297,6 @@
       <div class="chat-header">
         <button class="open-channels-pane">
           <svg
-            class="hamburger"
             xmlns="http://www.w3.org/2000/svg"
             width="24"
             height="24"
@@ -321,7 +316,6 @@
         <div class="chat-name">WebSocket Chat</div>
         <button class="open-peers-pane">
           <svg
-            class="connected-link"
             xmlns="http://www.w3.org/2000/svg"
             width="24"
             height="24"
@@ -341,7 +335,6 @@
             />
           </svg>
           <svg
-            class="broken-link visible"
             xmlns="http://www.w3.org/2000/svg"
             width="24"
             height="24"
@@ -351,7 +344,7 @@
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="lucide lucide-unlink"
+            class="lucide lucide-unlink visible"
           >
             <path
               d="m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"
@@ -392,9 +385,6 @@
       // const wsHost = "localhost:4000";
       const socket = new WebSocket(`${wsProtocol}//${wsHost}/chat/ws`);
 
-      // const connectionStatus = document.querySelector(".connection");
-      // const connectionStatusText = document.querySelector(".status-text");
-
       const channelsPaneButton = document.querySelector(".open-channels-pane");
       const peersPaneButton = document.querySelector(".open-peers-pane");
 
@@ -406,10 +396,8 @@
       let currentChannel = null;
 
       socket.onopen = function (e) {
-        document.querySelector(".connected-link").classList.add("visible");
-        document.querySelector(".broken-link").classList.remove("visible");
-
-        joinChannel("general");
+        document.querySelector(".lucide-link").classList.add("visible");
+        document.querySelector(".lucide-unlink").classList.remove("visible");
       };
 
       socket.onmessage = function (event) {
@@ -417,19 +405,15 @@
         switch (data.type) {
           case "connection":
             myId = data.client_id;
-            connectionStatusText.textContent = `Connected [Client ID: ${myId}]`;
             break;
           case "joined":
-            // addMessage(`Joined channel: ${data.channel}`, "System");
             currentChannel = data.channel;
             updateActiveChannel();
-            requestHistory(currentChannel);
+            requestHistory(currentChannel.id);
             break;
           case "left":
-            // addMessage(`Left channel: ${data.channel}`, "System");
-            if (currentChannel === data.channel) {
+            if (currentChannel.id === data.channelId) {
               currentChannel = null;
-              updateActiveChannel();
             }
 
             while (messages.firstChild) {
@@ -438,14 +422,14 @@
             break;
           case "channels":
             updateChannels(data.channels);
+            joinChannel(data.channels[0].id);
             break;
           case "history":
             data.messages.forEach((message) => {
               addMessage(
                 message.content,
-                message.from_id,
-                message.from_ip,
-                message.from_id === myId,
+                message.author,
+                message.author === myId,
               );
             });
             break;
@@ -453,15 +437,7 @@
             updatePeers(data.peers);
             break;
           case "message":
-            addMessage(
-              data.content,
-              data.from_id,
-              data.from_ip,
-              data.from_id === myId,
-            );
-            break;
-          case "ping":
-            socket.send("pong");
+            addMessage(data.content, data.author, data.author === myId);
             break;
           case "error":
             addMessage(`Error: ${data.message}`, "System");
@@ -470,21 +446,20 @@
       };
 
       socket.onclose = function (event) {
-        document.querySelector(".connected-link").classList.remove("visible");
-        document.querySelector(".broken-link").classList.add("visible");
+        document.querySelector(".lucide-link").classList.remove("visible");
+        document.querySelector(".lucide-unlink").classList.add("visible");
       };
 
-      function addMessage(message, fromId, fromIp, isSent) {
+      function addMessage(content, author, isSent) {
         const messageElement = document.createElement("div");
         messageElement.className = `message ${isSent ? "sent" : "received"}`;
 
         const infoElement = document.createElement("div");
         infoElement.className = "message-info";
-        infoElement.textContent =
-          fromId === "System" ? "System" : `${fromId} (${fromIp})`;
+        infoElement.textContent = author === "System" ? "System" : author;
 
         const contentElement = document.createElement("div");
-        contentElement.textContent = message;
+        contentElement.textContent = content;
 
         messageElement.appendChild(infoElement);
         messageElement.appendChild(contentElement);
@@ -498,7 +473,7 @@
           socket.send(
             JSON.stringify({
               type: "message",
-              channel: currentChannel,
+              channelId: currentChannel.id,
               content: message,
             }),
           );
@@ -506,19 +481,20 @@
         }
       }
 
-      function joinChannel(channel) {
+      function joinChannel(channelId) {
         if (currentChannel) {
           socket.send(
             JSON.stringify({
               type: "leave",
-              channel: currentChannel,
+              channelId: currentChannel.id,
             }),
           );
         }
+
         socket.send(
           JSON.stringify({
             type: "join",
-            channel: channel,
+            channelId: channelId,
           }),
         );
       }
@@ -527,18 +503,18 @@
         const channels = document.querySelectorAll(".channel-item");
         channels.forEach((ch) => {
           ch.classList.remove("active");
-          if (ch.textContent.trim().toLowerCase() === currentChannel) {
+          if (ch.textContent.trim().toLowerCase() === currentChannel.name) {
             ch.classList.add("active");
           }
         });
         closeLeftPane();
-        channelHeader.textContent = currentChannel;
+        channelHeader.textContent = currentChannel.name;
       }
 
-      function requestHistory(channel) {
+      function requestHistory(channelId) {
         const historyRequest = {
           type: "history",
-          channel: channel,
+          channelId: channelId,
         };
         socket.send(JSON.stringify(historyRequest));
       }
@@ -552,7 +528,7 @@
         peers.forEach((peer) => {
           const peerItem = document.createElement("div");
           peerItem.className = "peer-item";
-          peerItem.textContent = `${peer.id} (${peer.ip}) in ${peer.channels[0]}`;
+          peerItem.textContent = `${peer.id} (${peer.ip}) in ${peer.channels[0].name}`;
           peerList.appendChild(peerItem);
 
           if (peer.id === myId) {
@@ -570,8 +546,8 @@
         channels.forEach((channel) => {
           const channelItem = document.createElement("div");
           channelItem.className = "channel-item";
-          channelItem.textContent = channel;
-          channelItem.addEventListener("click", () => joinChannel(channel));
+          channelItem.textContent = channel.name;
+          channelItem.addEventListener("click", () => joinChannel(channel.id));
           channelList.appendChild(channelItem);
         });
       }

@@ -13,6 +13,7 @@ defmodule WsChat.Application do
     :ets.insert(:channels, [{"general"}, {"random"}, {"tech"}])
 
     children = [
+      WsChat.Repo,
       {Plug.Cowboy,
        scheme: :http,
        plug: WsChat.Router,
