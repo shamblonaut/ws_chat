@@ -3,8 +3,8 @@ import Config
 config :ws_chat,
   ecto_repos: [WsChat.Repo]
 
-config :ws_chat, WsChat.Repo,
-  database: "ws_chat_repo",
-  username: "postgres",
-  password: "",
-  hostname: "localhost"
+config :logger, :console,
+  format: "$time $metadata[$level] $message\n",
+  metadata: [:request_id]
+
+import_config "#{config_env()}.exs"
