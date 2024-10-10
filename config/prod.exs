@@ -7,9 +7,7 @@ config :ws_chat, WsChat.Endpoint,
 
 config :ws_chat, WsChat.Repo,
   adapter: Ecto.Adapters.Postgres,
-  url: System.get_env("DATABASE_URL"),
+  url: {:system, "DATABASE_URL"},
   database: "",
   ssl: true,
-
-  # Free tier db only allows 4 connections. Rolling deploys need pool_size*(n+1) connections where n is the number of app replicas
   pool_size: 2
