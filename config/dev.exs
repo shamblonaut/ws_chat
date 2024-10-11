@@ -4,7 +4,7 @@ config :ws_chat, WsChat.Repo,
   username: "postgres",
   password: "",
   hostname: "localhost",
-  database: "ws_chat_repo_dev",
+  database: "ws_chat_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
